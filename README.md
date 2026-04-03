@@ -15,6 +15,7 @@ go mod tidy
 
 # 运行服务
 go run cmd/server/main.go
+```
 
 ## API文档
 [详细API文档](./docs/api.md)
@@ -25,9 +26,3 @@ go run cmd/server/main.go
 
 ## 部署
 [部署指南](./docs/deployment.md)
-
-## 贡献指南
-欢迎提交PR和Issue
-
-## License
-MIT
