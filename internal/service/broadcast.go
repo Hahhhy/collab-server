@@ -44,7 +44,50 @@ type Client struct {
 type DocRoom struct {
 	DocID   string
 	mu      sync.RWMutex
-	clients map[string]*Client // userID -> Client,来识别？？？？？？这是什么意思呢🤔
+	clients map[string]*Client // userID -> Client,来识别？？？？？？
+	// 这是什么意思呢
+	// 🤔通过ID快速找到客户端链接，空间换时间
+}
+
+// broadcast.go (service 包)
+
+type BroadcastService struct {
+	mu sync.RWMutex
+	// rooms 存储每个文档对应的房间，房间里有在线的客户端
+	rooms map[string]*DocRoom
+}
+
+func NewBroadcastService() *BroadcastService {
+	return &BroadcastService{
+		rooms: make(map[string]*DocRoom),
+	}
+}
+
+// getOrCreateRoom 获取文档房间，如果不存在则创建，这个方法一定要绑定！
+func (bs *BroadcastService) getOrCreateRoom(docID string) *DocRoom {
+	bs.mu.RLock()
+	room, ok := bs.rooms[docID]
+	bs.mu.RUnlock()
+	if ok {
+		return room
+	}
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	if room, ok = bs.rooms[docID]; ok {
+		return room
+	}
+	room = &DocRoom{
+		DocID:   docID,
+		clients: make(map[string]*Client),
+	}
+	bs.rooms[docID] = room
+	return room
+}
+
+// BroadcastToRoom 向指定文档房间广播事件
+func (bs *BroadcastService) BroadcastToRoom(docID string, evt DocumentEvent, excludeUserID string) {
+	room := bs.getOrCreateRoom(docID)
+	room.Broadcast(evt, excludeUserID)
 }
 
 // Broadcast

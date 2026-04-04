@@ -14,7 +14,7 @@ cd TO
 go mod tidy
 
 # 运行服务
-go run cmd/server/main.go
+go run cmd/main.go
 ```
 
 ## API文档

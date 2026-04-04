@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"TO/internal/models"
+	"TO/internal/storage"
 
 	"github.com/google/uuid"
-	"golang.org/x/mod/sumdb/storage"
 )
 
 // TODO: 这个函数是干嘛用的，检验版本对不对为什么要放这个函数里面？？？？？？
@@ -91,17 +91,44 @@ import (
 // 这个s是什么东西，collabService哪里定义的
 
 type CollabService struct {
-	storage     storage.Storage // 持久化接口
-	broadcaster *Broadcast      // 广播服务
+	storage storage.Storage // 持久化接口
+	//广播中介，我要这里面完成找到我需要的那个广播room也就是对应的doc，所以就是需要这个结构体
+	broadcaster *BroadcastService // 广播服务
 	// logger      Logger          // 日志接口
 }
 
-func NewCollabService(storage storage.Storage, broadcaster *room.BroadcastService) *CollabService {
+func NewCollabService(storage storage.Storage, broadcaster *BroadcastService) *CollabService {
 	return &CollabService{
 		storage:     storage,
 		broadcaster: broadcaster,
 		// logger:      &defaultLogger{}, // 或传入
 	}
+}
+
+// 检查用户是否有指定权限
+func (s *CollabService) checkUserPermission(userID, docID string, requiredRole models.UserRole) bool {
+	// service 层
+	role, err := s.storage.GetUserRole(userID, docID)
+	if err != nil {
+		// 没查到或出错都视为无权限
+		return false
+	}
+	// 权限层级：editor > commenter > viewer
+	roleLevel := map[models.UserRole]int{
+		models.RoleViewer:    1,
+		models.RoleCommenter: 2,
+		models.RoleEditor:    3,
+	}
+	return roleLevel[role] >= roleLevel[requiredRole]
+}
+
+// 检查用户是否在线
+func (s *CollabService) checkUserOnline(userID string) bool {
+	state, err := s.storage.GetUserConnectionStatus(userID)
+	if err != nil {
+		return false
+	}
+	return state == models.StatusConnected
 }
 
 func (s *CollabService) getDocument(docID string) (*models.Document, error) {
@@ -117,6 +144,8 @@ func (s *CollabService) getDocument(docID string) (*models.Document, error) {
 		Version: snapshot.Version,
 	}
 	// 3. 重放快照之后的操作（保证最新）
+	//就是说一般是多少次更新一次快照，因为你记快照的话，
+	// 会冗余很多，一般来说我们记操作日志的话，就可以在重启点的时取最新的快照，然后根据这些操作来获取我最新的文档状态
 	ops, _ := s.storage.GetOperationsSince(docID, snapshot.Version)
 	for _, op := range ops {
 		doc.Apply(op) // 注意：Apply 会修改 doc 内容
@@ -124,10 +153,10 @@ func (s *CollabService) getDocument(docID string) (*models.Document, error) {
 	return doc, nil
 }
 
-func (s *CollabService) checkUserPermission(userID, docID string, requiredRole models.UserRole) bool {
-	// 实现略：从数据库或缓存查询用户角色
-	return true
-}
+// func (s *CollabService) checkUserPermission(userID, docID string, requiredRole models.UserRole) bool {
+// 	// 实现略：从数据库或缓存查询用户角色
+// 	return true
+// }
 
 // EditRequest 表示客户端发起的编辑请求
 type EditRequest struct {
@@ -156,7 +185,12 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 	}
 
 	//2.校验用户权限
-	if !s.checkUserPermission(req.UserID, req.DocID, RoleEditor) {
+	// if !s.checkUserPermission(req.UserID, req.DocID, models.RoleEditor) {
+	// 	return &EditResponse{Accepted: false, Reason: "no permission"}, nil
+	// }
+
+	//检验用户是否有这个权限以及是否在线
+	if !s.checkUserPermission(req.UserID, req.DocID, models.RoleEditor) || !s.checkUserOnline(req.UserID) {
 		return &EditResponse{Accepted: false, Reason: "no permission"}, nil
 	}
 
@@ -209,15 +243,16 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 	}
 
 	// 8) 广播给其他用户
-	s.broadcaster.BroadcastToRoom(req.DocID, evt, req.UserID)
+	s.broadcaster.BroadcastToRoom(req.DocID, *evt, req.UserID)
 
 	// 9) 返回结果
 	snapshot := doc.Snapshot()
 	return &EditResponse{
-		Accepted:     true,
-		Reason:       "ok",
-		AppliedOp:    &appliedOp,
-		NewSnapshot:  &snapshot, //demo中一并返回，真实项目中不必每次返回全文，是什么意思？？？？？
-		BroadcastEvt: evt,
+		Accepted:    true,
+		Reason:      "ok",
+		AppliedOp:   &appliedOp,
+		NewSnapshot: &snapshot, //demo中一并返回，真实项目中不必每次返回全文
+		// ，是什么意思？？？？？解释在上面
+		BroadcastEvt: *evt,
 	}, nil
 }

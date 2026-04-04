@@ -11,6 +11,8 @@ import "time"
 type UserRole string
 
 //三种用户状态：编辑者、评论者和查看者
+
+//再检查用户是否能编辑文档的功能里面要用到
 const (
 	RoleEditor    UserRole = "editor"
 	RoleCommenter UserRole = "commenter"
@@ -24,6 +26,11 @@ const (
 	StatusConnected    ConnectionStatus = "online"
 	StatusDisconnected ConnectionStatus = "offline"
 )
+
+//前端渲染要用到吗？？
+//下面这些感觉还没有用到！！！！！！
+//！！！！！！！！！
+//？？？？？？？
 
 //光标位置
 //暂时分这两种状态？？？？

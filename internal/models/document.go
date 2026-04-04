@@ -81,6 +81,9 @@ func (d *Document) Apply(op Operation) (Operation, error) {
 
 func (d *Document) applyDelete(pos int, length int) error {
 	//判断删除的位置和长度是否合法
+	//这个无效操作是怎么造成的？？感觉不应该是用户可以做出来的效果？？？，length小于零是传输有误？？？咋来的这种bug呢？？？？？？？？？？？？？？？？？？
+	// ？？？？？？？？？？？？？？？？？？？？
+	// ？？？？？？？？？？？？？？？？？？
 	if pos < 0 || pos > len(d.Content) || length < 0 || pos+length > len(d.Content) {
 		return fmt.Errorf("invalid delete operation: position %d, length %d", pos, length)
 	}
