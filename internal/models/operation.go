@@ -38,6 +38,7 @@ type Operation struct {
 
 func NewOperation(docID, userID string, opType OperationType, pos int, text string, length int, baseVersion int) Operation {
 	return Operation{
+		//这里使用uuid生成一个唯一的操作ID，确保每个操作都有一个独特的标识符，方便后续的追踪和管理。
 		ID:          uuid.New().String(),
 		DocID:       docID,
 		UserID:      userID,

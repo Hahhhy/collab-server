@@ -20,7 +20,7 @@ func main() {
 	}
 	defer db.Close()
 
-	//2。初始化storage层
+	//2.初始化storage层
 	store := storage.NewStorage(db)
 
 	//3.初始化广播服务
@@ -31,6 +31,10 @@ func main() {
 
 	//5.启动HTTP服务器，注册处理函数
 	http.HandleFunc("/collab", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		//处理HTTP请求
 		var req service.EditRequest
 		//解析请求参数
@@ -47,10 +51,10 @@ func main() {
 		}
 
 		//返回处理结果
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
-		http.Error(w, "ok", http.StatusOK)
-		http.HandleFunc("/edit", func(w http.ResponseWriter, r *http.Request) {})
-		http.ListenAndServe(":8080", nil)
 	})
+	log.Println("server started on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }

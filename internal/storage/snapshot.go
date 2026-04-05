@@ -100,3 +100,13 @@ func (s *Storage) GetOperationsSince(docID string, sinceVersion int) ([]models.O
 	}
 	return ops, nil
 }
+
+// SaveOperation 保存一个操作
+func (s *Storage) SaveOperation(op models.Operation) error {
+	query := `
+        INSERT INTO operations (id, doc_id, user_id, type, position, text, length, base_version, version, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+    `
+	_, err := s.db.Exec(query, op.ID, op.DocID, op.UserID, op.Type, op.Position, op.Text, op.Length, op.BaseVersion, op.Version)
+	return err
+}

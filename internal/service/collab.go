@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"TO/internal/models"
@@ -190,6 +191,7 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 	// }
 
 	//检验用户是否有这个权限以及是否在线
+	//这个逻辑是写在了上面，绑定了这个s
 	if !s.checkUserPermission(req.UserID, req.DocID, models.RoleEditor) || !s.checkUserOnline(req.UserID) {
 		return &EditResponse{Accepted: false, Reason: "no permission"}, nil
 	}
@@ -202,6 +204,7 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 
 	// 4) 构造操作
 	op := models.Operation{
+		//这里使用uuid生成一个唯一的操作ID，确保每个操作都有一个独特的标识符，方便后续的追踪和管理。
 		ID:          uuid.New().String(),
 		DocID:       req.DocID,
 		UserID:      req.UserID,
@@ -214,6 +217,8 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 	}
 
 	// 5) 应用操作
+	//apply里面第一步就是检查这个版本对不对，我这里直接返回并没有采取什么措施，如果版本不对了就直接返回错误了，前端收到这个错误之后可以选择刷新页面或者提示用户版本冲突了
+	//TO或者xxxx，解决办法（ai）
 	appliedOp, err := doc.Apply(op)
 	if err != nil {
 		return &EditResponse{Accepted: false, Reason: err.Error()}, nil
@@ -222,16 +227,28 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 	// // 6) 持久化操作
 	// //前面前是生成了operation，现在就是真正的把这个operation保存到数据库里面去，保存成功了就可以广播了，保存失败了就记录错误日志但是不影响用户的编辑体验，因为内存状态已经更新了
 	// //哪一步骤是更新内存状态的？？？？？？前面哪一步啊？？？？？？？？？？
-	// // ？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
-	// // ？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
-	// // ？？？？？？？？？？？？？？？？？？？？？
+	// // doc.Apply(op)这个函数是更新内存状态的，前面这个函数是把这个操作应用到文档对象上面去，
+	// 改变了文档对象的内容和版本号等属性，所以说这个函数是更新内存状态的，
 	// // ？应用那个方法的时候是直接对这个文档对象进行属性的更改，也就是说保存失误
-	// // ，那这个SaveOperation这个函数是干嘛用的？？？？？？？？？？
 
-	// if err := s.storage.SaveOperation(appliedOp); err != nil {
-	// 	// 记录错误但继续，因为内存状态已更新
-	// 	s.logger.Error("failed to save operation", err)
-	// }
+	// // ，那这个SaveOperation这个函数是干嘛用的？？？？？？？？？？
+	//这样是为了保证用户的编辑体验，但是我感觉不太靠谱
+	//可以加一些不断重复尝试保存的机制，
+
+	// 或者说如果保存失败了就把这个操作放到一个队列里面去，（这个建议是ai说的是什么意思🤔）
+	// 等到数据库恢复了再去保存这些操作，这样就不会丢失数据了
+
+	//持久化快照，比如说100次更新一次快照，这样就可以减少重启点的重放操作的数量了
+	if err := s.storage.SaveSnapshot(doc.ID, doc.Content, doc.Version); err != nil {
+		// 忽略错误，因为内存状态已更新
+		slog.Error("failed to save snapshot", "err", err, "doc_id", doc.ID)
+	}
+
+	if err := s.storage.SaveOperation(appliedOp); err != nil {
+		// 记录错误但继续，因为内存状态已更新
+
+		slog.Error("failed to save operation", "err", err, "operation_id", appliedOp.ID)
+	}
 
 	// 7) 生成广播事件
 	evt := &DocumentEvent{

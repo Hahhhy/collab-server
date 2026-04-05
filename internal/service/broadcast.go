@@ -64,6 +64,7 @@ func NewBroadcastService() *BroadcastService {
 }
 
 // getOrCreateRoom 获取文档房间，如果不存在则创建，这个方法一定要绑定！
+// 会有这种情况吗？？？？？？？好奇怪
 func (bs *BroadcastService) getOrCreateRoom(docID string) *DocRoom {
 	bs.mu.RLock()
 	room, ok := bs.rooms[docID]
@@ -86,12 +87,15 @@ func (bs *BroadcastService) getOrCreateRoom(docID string) *DocRoom {
 
 // BroadcastToRoom 向指定文档房间广播事件
 func (bs *BroadcastService) BroadcastToRoom(docID string, evt DocumentEvent, excludeUserID string) {
+	//这个create操作真的有必要吗？？？？
 	room := bs.getOrCreateRoom(docID)
 	room.Broadcast(evt, excludeUserID)
 }
 
 // Broadcast
 func (r *DocRoom) Broadcast(evt DocumentEvent, excludeUserID string) {
+	//这个读锁是为了在广播消息的时候，允许多个读操作同时进行（即多个广播可以同时进行），
+	//但在添加或移除客户端时需要写锁，确保线程安全。
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	jsonEvt, err := json.Marshal(evt)
@@ -99,7 +103,7 @@ func (r *DocRoom) Broadcast(evt DocumentEvent, excludeUserID string) {
 		// 处理错误
 		return
 	}
-	//遍历房间里的所有客户端，给除了excludeUserID以外的客户端发送消息
+	//遍历房间里的所有客户端，给除了excludeUserID（修改本人？）以外的客户端发送消息
 	for userID, client := range r.clients {
 		if userID != excludeUserID {
 			client.Send <- jsonEvt //这个有可能失败吗？？？？这里怎么写比较好呢，如果缓冲区满了呢？？？
