@@ -85,6 +85,22 @@ func (bs *BroadcastService) getOrCreateRoom(docID string) *DocRoom {
 	return room
 }
 
+// JoinRoom 加入文档房间
+func (bs *BroadcastService) JoinRoom(docID string, client *Client) {
+	room := bs.getOrCreateRoom(docID)
+	room.mu.Lock()
+	defer room.mu.Unlock()
+	room.clients[client.UserID] = client
+}
+
+// LeaveRoom 离开文档房间
+func (bs *BroadcastService) LeaveRoom(docID string, userID string) {
+	room := bs.getOrCreateRoom(docID)
+	room.mu.Lock()
+	defer room.mu.Unlock()
+	delete(room.clients, userID)
+}
+
 // BroadcastToRoom 向指定文档房间广播事件
 func (bs *BroadcastService) BroadcastToRoom(docID string, evt DocumentEvent, excludeUserID string) {
 	//这个create操作真的有必要吗？？？？

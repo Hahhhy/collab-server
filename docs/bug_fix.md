@@ -18,4 +18,4 @@
 ## 状态同步bug
 -  实现 `WebSocket` 连接建立时更新 `user_sessions` 状态的逻辑，否则 [checkUserOnline](..\internal\service\collab.go) 将始终返回 `false`（除非你在数据库里手动插入了数据）。
 - 就是没有实现用户状态实时更新的功能，应该是要根据用户前端传过来的某些信息判断这个用户是不是在线
-- 缺少`AddClient`/`RemoveClient`/`SetUserConnectionStatus`<span style="color: red;">未完成</span>
+- 缺少`AddClient`/`RemoveClient`/`SetUserConnectionStatus`<span style="color: red;">未完成</span>已完成

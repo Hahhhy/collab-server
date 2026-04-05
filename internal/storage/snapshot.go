@@ -23,10 +23,20 @@ func (s *Storage) GetUserRole(userID, docID string) (models.UserRole, error) {
 	return role, err
 }
 
-func (s *Storage) GetUserConnectionStatus(userID string) (models.ConnectionStatus, error) {
-	query := `SELECT state FROM user_sessions WHERE user_id = $1`
+// SetUserConnectionStatus 设置用户连接状态
+func (s *Storage) SetUserConnectionStatus(userID, docID string, status models.ConnectionStatus) error {
+	query := `
+		INSERT INTO user_sessions (user_id, doc_id, state, last_active)
+		VALUES ($1, $2, $3, NOW())
+	`
+	_, err := s.db.Exec(query, userID, docID, status, time.Now())
+	return err
+}
+
+func (s *Storage) GetUserConnectionStatus(userID, docID string) (models.ConnectionStatus, error) {
+	query := `SELECT state FROM user_sessions WHERE user_id = $1 AND doc_id = $2`
 	var state models.ConnectionStatus
-	err := s.db.QueryRow(query, userID).Scan(&state)
+	err := s.db.QueryRow(query, userID, docID).Scan(&state)
 	return state, err
 }
 

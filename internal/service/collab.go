@@ -124,8 +124,8 @@ func (s *CollabService) checkUserPermission(userID, docID string, requiredRole m
 }
 
 // 检查用户是否在线
-func (s *CollabService) checkUserOnline(userID string) bool {
-	state, err := s.storage.GetUserConnectionStatus(userID)
+func (s *CollabService) checkUserOnline(userID, docID string) bool {
+	state, err := s.storage.GetUserConnectionStatus(userID, docID)
 	if err != nil {
 		return false
 	}
@@ -179,6 +179,27 @@ type EditResponse struct {
 	BroadcastEvt DocumentEvent            `json:"-"`
 }
 
+// 确认是否在线
+func (s *CollabService) SetUserOnline(userID, docID string) error {
+	if err := s.storage.SetUserConnectionStatus(userID, docID, models.StatusConnected); err != nil {
+		return err
+	}
+	s.broadcaster.JoinRoom(docID, &Client{
+		UserID: userID,
+		DocID:  docID,
+		Send:   make(chan []byte, 16),
+	})
+	return nil
+}
+
+func (s *CollabService) SetUserOffline(userID, docID string) error {
+	if err := s.storage.SetUserConnectionStatus(userID, docID, models.StatusDisconnected); err != nil {
+		return err
+	}
+	s.broadcaster.LeaveRoom(docID, userID)
+	return nil
+}
+
 func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 	//1.基本参数校验
 	if req.DocID == "" || req.UserID == "" {
@@ -192,7 +213,7 @@ func (s *CollabService) HandleEdit(req EditRequest) (*EditResponse, error) {
 
 	//检验用户是否有这个权限以及是否在线
 	//这个逻辑是写在了上面，绑定了这个s
-	if !s.checkUserPermission(req.UserID, req.DocID, models.RoleEditor) || !s.checkUserOnline(req.UserID) {
+	if !s.checkUserPermission(req.UserID, req.DocID, models.RoleEditor) || !s.checkUserOnline(req.UserID, req.DocID) {
 		return &EditResponse{Accepted: false, Reason: "no permission"}, nil
 	}
 
