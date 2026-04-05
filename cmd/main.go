@@ -30,6 +30,31 @@ func main() {
 	collab := service.NewCollabService(*store, broadcaster)
 
 	//5.启动HTTP服务器，注册处理函数
+	http.HandleFunc("/session/connect", func(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        UserID string `json:"user_id"`
+        DocID  string `json:"doc_id"`
+    }
+    json.NewDecoder(r.Body).Decode(&req)
+    if err := collab.SetUserOnline(req.UserID, req.DocID); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+})
+
+http.HandleFunc("/session/disconnect", func(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        UserID string `json:"user_id"`
+        DocID  string `json:"doc_id"`
+    }
+    json.NewDecoder(r.Body).Decode(&req)
+    if err := collab.SetUserOffline(req.UserID, req.DocID); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+})
 	http.HandleFunc("/collab", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
