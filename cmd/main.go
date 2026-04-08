@@ -14,7 +14,7 @@ func main() {
 	//加载驱动
 	//验证 DSN 格式
 	//返回一个 *sql.DB 对象（连接池的句柄）
-	db, err := sql.Open("postgres", "your-dsn-here")
+	db, err := sql.Open("", "")
 	if err != nil {
 		log.Fatal("failed to connect database:", err)
 	}
@@ -31,30 +31,30 @@ func main() {
 
 	//5.启动HTTP服务器，注册处理函数
 	http.HandleFunc("/session/connect", func(w http.ResponseWriter, r *http.Request) {
-    var req struct {
-        UserID string `json:"user_id"`
-        DocID  string `json:"doc_id"`
-    }
-    json.NewDecoder(r.Body).Decode(&req)
-    if err := collab.SetUserOnline(req.UserID, req.DocID); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    w.WriteHeader(http.StatusOK)
-})
+		var req struct {
+			UserID string `json:"user_id"`
+			DocID  string `json:"doc_id"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if err := collab.SetUserOnline(req.UserID, req.DocID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 
-http.HandleFunc("/session/disconnect", func(w http.ResponseWriter, r *http.Request) {
-    var req struct {
-        UserID string `json:"user_id"`
-        DocID  string `json:"doc_id"`
-    }
-    json.NewDecoder(r.Body).Decode(&req)
-    if err := collab.SetUserOffline(req.UserID, req.DocID); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    w.WriteHeader(http.StatusOK)
-})
+	http.HandleFunc("/session/disconnect", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			UserID string `json:"user_id"`
+			DocID  string `json:"doc_id"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if err := collab.SetUserOffline(req.UserID, req.DocID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 	http.HandleFunc("/collab", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
